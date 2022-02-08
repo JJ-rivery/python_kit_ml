@@ -47,8 +47,6 @@ def data_preprocessor_lin_regression(raw_dataset, cat_columns):
     preprocessed_data_lin_reg, transform_dict = MultiColumnLabelEncoder.data_transformer(
         preprocessed_data_lin_reg_drop_na,
         cat_columns=cat_columns)
-    print(preprocessed_data_lin_reg)
-    print(f"Transform_dict = {transform_dict}")
     preprocessed_data_lin_reg['MonthlyCharges'] = preprocessed_data_lin_reg['MonthlyCharges'].fillna(0.0)
     preprocessed_data_lin_reg['TotalCharges'] = preprocessed_data_lin_reg['TotalCharges'].fillna(0.0)
 
@@ -68,6 +66,10 @@ def data_splitter(data):
                                                                                 test_size=.2, random_state=42)
 
     return telco_x_train, telco_y_train, telco_x_test, telco_y_test
+
+
+def model_predictor(model, data_to_predict):
+    return model.predict(data_to_predict)
 
 
 def main():
@@ -136,6 +138,36 @@ def main():
 
     print(f"The most accurate prediction algorithm is {best_model} with R squared value of "
           f"{scores_dict[best_model]}!")
+
+    data_to_predict_ = data_preprocessor_lin_regression(raw_dataset_telco, cat_columns=
+                                                                        ['gender', 'Partner', 'Dependents',
+                                                                         'PhoneService',
+                                                                         'MultipleLines',
+                                                                         'InternetService',
+                                                                         'OnlineSecurity', 'OnlineBackup',
+                                                                         'DeviceProtection', 'TechSupport',
+                                                                         'StreamingTV',
+                                                                         'StreamingMovies', 'Contract',
+                                                                         'PaperlessBilling',
+                                                                         'PaymentMethod', 'Churn'])
+
+    data_to_predict = data_to_predict_.iloc[0:10]
+    print(f"data_to_predict = {data_to_predict.iloc[:,0]}")
+    print(f"type(data_to_predict) = {type(data_to_predict)}")
+    OutputDF = pd.DataFrame()
+    OutputDF[str(data_to_predict.columns[0])] = data_to_predict[str(data_to_predict.columns[0])]
+    if best_model == 'Linear Regression':
+        prediction = model_predictor(lin_regression_model, data_to_predict[1:-1])
+        print([data_to_predict.iloc[:, 0], prediction])
+    elif best_model == 'Logistic Regression':
+        print(f"data_to_predict.iloc[:, 1:-1] = {data_to_predict.iloc[:, 1:-1]}")
+        prediction = model_predictor(log_reg, data_to_predict.iloc[:, 1:-1])
+        prediction = np.array(prediction)
+        OutputDF['prediction'] = prediction.tolist()
+        print(f"OutputDF = {OutputDF}")
+    elif best_model == 'Decision Tree':
+        prediction = model_predictor(clf, data_to_predict[1:-1])
+        print([data_to_predict.iloc[:, 0], prediction])
 
 
 if __name__ == "__main__":
