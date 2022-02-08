@@ -1,40 +1,41 @@
 # Import necessary libraries.
 import pandas as pd
-from sklearn.preprocessing import LabelEncoder
 from sklearn import linear_model
 from sklearn.metrics import mean_squared_error, r2_score
 import numpy as np
 from sklearn.linear_model import LogisticRegression
+from sklearn.tree import DecisionTreeClassifier
+from sklearn import metrics
+
 import pdb
 
 
+def data_inverse_transformer(transform_dict):
+    inverse_transform_dict = {}
+    for col, d in transform_dict.items():
+        inverse_transform_dict[col] = {v: k for k, v in d.items()}
+
+
 class MultiColumnLabelEncoder:
-    def __init__(self, columns=None):
-        self.columns = columns  # array of column names to encode
+    def __init__(self, data):
+        self.data = data
 
-    def fit(self, x, y=None):
-        return self  # not relevant here
+    def data_transformer(self, cat_columns):
+        transform_dict = {}
+        for col in cat_columns:
+            cats = pd.Categorical(self[col]).categories
+            d = {}
+            for i, cat in enumerate(cats):
+                d[cat] = i
+            transform_dict[col] = d
 
-    def transform(self, x):
-        """
-        Transforms columns of X specified in self.columns using
-        LabelEncoder(). If no columns specified, transforms all
-        columns in X.
-        """
-        output = x.copy()
-        if self.columns is not None:
-            for col in self.columns:
-                output[col] = LabelEncoder().fit_transform(output[col])
-        else:
-            for colname, col in output.iteritems():
-                output[colname] = LabelEncoder().fit_transform(col)
-        return output
+        return self.replace(transform_dict), transform_dict
 
-    def fit_transform(self, x, y=None):
-        return self.fit(x, y).transform(x)
+    def replace(self, transform_dict):
+        pass
 
 
-def data_preprocessor_lin_regression(raw_dataset):
+def data_preprocessor_lin_regression(raw_dataset, cat_columns):
     """
     Function that preprocesses the raw data to conform to the format required of the linear regression ML algorithm.
     :param raw_dataset: pandas dataframe object.
@@ -43,12 +44,11 @@ def data_preprocessor_lin_regression(raw_dataset):
     # Drop NA values in dataset.
     preprocessed_data_lin_reg_drop_na = raw_dataset.replace(r'^\s*$', np.nan, regex=True)
 
-    preprocessed_data_lin_reg = MultiColumnLabelEncoder \
-        (columns=['gender', 'Partner', 'Dependents', 'PhoneService', 'MultipleLines',
-                  'InternetService', 'OnlineSecurity', 'OnlineBackup', 'DeviceProtection',
-                  'TechSupport', 'StreamingTV', 'StreamingMovies', 'Contract',
-                  'PaperlessBilling', 'PaymentMethod', 'Churn']).fit_transform(preprocessed_data_lin_reg_drop_na)
-
+    preprocessed_data_lin_reg, transform_dict = MultiColumnLabelEncoder.data_transformer(
+        preprocessed_data_lin_reg_drop_na,
+        cat_columns=cat_columns)
+    print(preprocessed_data_lin_reg)
+    print(f"Transform_dict = {transform_dict}")
     preprocessed_data_lin_reg['MonthlyCharges'] = preprocessed_data_lin_reg['MonthlyCharges'].fillna(0.0)
     preprocessed_data_lin_reg['TotalCharges'] = preprocessed_data_lin_reg['TotalCharges'].fillna(0.0)
 
@@ -62,7 +62,6 @@ def data_splitter(data):
     :return: series, series, series, series
     """
     from sklearn.model_selection import train_test_split
-    data_length = len(data)
 
     # Split data into train/test sets (80:20 split).
     telco_x_train, telco_x_test, telco_y_train, telco_y_test = train_test_split(data.iloc[:, 1:-1], data.iloc[:, -1],
@@ -76,16 +75,21 @@ def main():
     raw_dataset_telco = pd.read_csv(
         r"C:\Users\Ujjwal-Work\Desktop\Rivery\python_kits\Sandbox\WA_Fn-UseC_-Telco-Customer-Churn.csv")
 
-    # Preprocess raw data for Linear Regression.
-    preprocessed_data_lin_reg_telco = data_preprocessor_lin_regression(raw_dataset_telco)
-    print(preprocessed_data_lin_reg_telco)
+    # Preprocess raw data for Regressions.
+    preprocessed_data_lin_reg_telco = data_preprocessor_lin_regression(raw_dataset_telco, cat_columns=
+    ['gender', 'Partner', 'Dependents',
+     'PhoneService',
+     'MultipleLines',
+     'InternetService',
+     'OnlineSecurity', 'OnlineBackup',
+     'DeviceProtection', 'TechSupport',
+     'StreamingTV',
+     'StreamingMovies', 'Contract',
+     'PaperlessBilling',
+     'PaymentMethod', 'Churn'])
 
     # Split data into train/test sets.
     telco_x_train, telco_y_train, telco_x_test, telco_y_test = data_splitter(preprocessed_data_lin_reg_telco)
-    print(f"telco_x_train = {telco_x_train}")
-    print(f"telco_x_test = {telco_x_test}")
-    print(f"telco_y_train = {telco_y_train}")
-    print(f"telco_y_test = {telco_y_test}")
 
     # Build Linear Regression model.
     lin_regression_model = linear_model.LinearRegression()
@@ -96,12 +100,9 @@ def main():
     # Use model to predict testing data churn outcome.
     lin_reg_y_pred = lin_regression_model.predict(telco_x_test)
 
-    # The coefficients
-    print("Coefficients: \n", lin_regression_model.coef_)
-    # The mean squared error
-    print("Mean squared error: %.2f" % mean_squared_error(telco_y_test, lin_reg_y_pred))
-    # The coefficient of determination: 1 is perfect prediction
-    print("Coefficient of determination: %.2f" % r2_score(telco_y_test, lin_reg_y_pred))
+    # Determine Linear Regression Model score.
+    lin_reg_score = r2_score(telco_y_test, lin_reg_y_pred)
+    print("lin_reg_score: %.2f" % lin_reg_score)
 
     # Build and Train Logistic Regression model.
     log_reg = LogisticRegression(solver='liblinear', random_state=0, max_iter=1000).fit(telco_x_train, telco_y_train)
@@ -112,7 +113,29 @@ def main():
     # Evaluate Logistic Regression model.
     log_reg_score = log_reg.score(telco_x_test, telco_y_test)
 
-    print(f"log_reg_score = {log_reg_score}")
+    print("log_reg_score: %.2f" % log_reg_score)
+
+    # Generate decision tree classifier.
+    decision_tree = DecisionTreeClassifier()
+
+    # Train Decision Tree classifier.
+    clf = decision_tree.fit(telco_x_train, telco_y_train)
+
+    # Predict the outcome on the test data.
+    decision_tree_y_pred = clf.predict(telco_x_test)
+
+    # Decision Tree Model Score
+    desc_tree_score = metrics.accuracy_score(telco_y_test, decision_tree_y_pred)
+    print("decs_tree_score: %.2f" % desc_tree_score)
+
+    # Create scores dict from all three models.
+    scores_dict = {'Linear Regression': lin_reg_score, 'Logistic Regression': log_reg_score,
+                   'Decision Tree': desc_tree_score}
+
+    best_model = max(scores_dict)
+
+    print(f"The most accurate prediction algorithm is {best_model} with R squared value of "
+          f"{scores_dict[best_model]}!")
 
 
 if __name__ == "__main__":
