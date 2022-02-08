@@ -4,6 +4,8 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn import linear_model
 from sklearn.metrics import mean_squared_error, r2_score
 import numpy as np
+from sklearn.linear_model import LogisticRegression
+import pdb
 
 
 class MultiColumnLabelEncoder:
@@ -59,18 +61,13 @@ def data_splitter(data):
     :param data: pandas dataframe
     :return: series, series, series, series
     """
+    from sklearn.model_selection import train_test_split
     data_length = len(data)
 
     # Split data into train/test sets (80:20 split).
-    telco_train = data[0:int(data_length * .8)]
-    telco_test = data[int(data_length * .8):data_length]
+    telco_x_train, telco_x_test, telco_y_train, telco_y_test = train_test_split(data.iloc[:, 1:-1], data.iloc[:, -1],
+                                                                                test_size=.2, random_state=42)
 
-    # Split into X and Y train/test sets.
-    telco_x_train = telco_train.iloc[:, 1:-1]
-    telco_y_train = telco_train.iloc[:, -1]
-    telco_x_test = telco_test.iloc[:, 1:-1]
-    telco_y_test = telco_test.iloc[:, -1]
-    print(telco_x_test)
     return telco_x_train, telco_y_train, telco_x_test, telco_y_test
 
 
@@ -85,6 +82,10 @@ def main():
 
     # Split data into train/test sets.
     telco_x_train, telco_y_train, telco_x_test, telco_y_test = data_splitter(preprocessed_data_lin_reg_telco)
+    print(f"telco_x_train = {telco_x_train}")
+    print(f"telco_x_test = {telco_x_test}")
+    print(f"telco_y_train = {telco_y_train}")
+    print(f"telco_y_test = {telco_y_test}")
 
     # Build Linear Regression model.
     lin_regression_model = linear_model.LinearRegression()
@@ -101,6 +102,17 @@ def main():
     print("Mean squared error: %.2f" % mean_squared_error(telco_y_test, lin_reg_y_pred))
     # The coefficient of determination: 1 is perfect prediction
     print("Coefficient of determination: %.2f" % r2_score(telco_y_test, lin_reg_y_pred))
+
+    # Build and Train Logistic Regression model.
+    log_reg = LogisticRegression(solver='liblinear', random_state=0, max_iter=1000).fit(telco_x_train, telco_y_train)
+
+    # Use Logistic Regression model to predict.
+    log_reg.predict(telco_x_test)
+
+    # Evaluate Logistic Regression model.
+    log_reg_score = log_reg.score(telco_x_test, telco_y_test)
+
+    print(f"log_reg_score = {log_reg_score}")
 
 
 if __name__ == "__main__":
